@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Environment variables (NEVER commit secrets)
+.env
+
+# Playwright artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+
+# IDE settings
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug logs
+npm-debug.log*
