@@ -4,15 +4,22 @@
   "description": "Portfolio de testes E2E com Playwright + TypeScript",
   "scripts": {
     "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report"
   },
-  "keywords": ["playwright", "e2e", "testing", "typescript"],
+  "keywords": [
+    "playwright",
+    "e2e",
+    "testing",
+    "typescript"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.57.0",
-    "@types/node": "^25.0.3"
+    "@types/node": "^25.0.3",
+    "dotenv": "^17.3.1"
   }
 }
