@@ -1,75 +1,76 @@
 import { test, expect } from '@playwright/test';
+import { LoginPage } from './pages/LoginPage';
+import { InventoryPage } from './pages/InventoryPage';
 
 test.describe('Login', () => {
+  let loginPage: LoginPage;
+  let inventoryPage: InventoryPage;
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    loginPage = new LoginPage(page);
+    inventoryPage = new InventoryPage(page);
+    await loginPage.goto();
   });
 
   test('deve fazer login com credenciais válidas @smoke', async ({ page }) => {
-    await page.locator('[data-test="username"]').fill('standard_user');
-    await page.locator('[data-test="password"]').fill('secret_sauce');
-    await page.pause ();
-    await page.locator('[data-test="login-button"]').click();
+    await loginPage.login('standard_user', 'secret_sauce');
 
     await expect(page).toHaveURL('/inventory.html');
     await expect(page.locator('.title')).toHaveText('Products');
   });
 
   test('deve exibir erro com credenciais inválidas', async ({ page }) => {
-    await page.locator('[data-test="username"]').fill('usuario_invalido');
-    await page.locator('[data-test="password"]').fill('senha_errada');
-    await page.locator('[data-test="login-button"]').click();
+    await loginPage.login('usuario_invalido', 'senha_errada');
 
-    await expect(page.locator('[data-test="error"]')).toBeVisible();
-    await expect(page.locator('[data-test="error"]')).toContainText(
+    await expect(loginPage.errorMessage).toBeVisible();
+    await expect(loginPage.errorMessage).toContainText(
       'Username and password do not match'
     );
   });
 
   test('deve exibir erro quando username está vazio', async ({ page }) => {
-    await page.locator('[data-test="password"]').fill('secret_sauce');
-    await page.locator('[data-test="login-button"]').click();
+    await loginPage.login('', 'secret_sauce');
 
-    await expect(page.locator('[data-test="error"]')).toContainText('Username is required');
+    await expect(loginPage.errorMessage).toContainText('Username is required');
   });
 
-  test('deve fazer logout com sucesso', async ({ page }) => {
-    await page.locator('[data-test="username"]').fill('standard_user');
-    await page.locator('[data-test="password"]').fill('secret_sauce');
-    await page.locator('[data-test="login-button"]').click();
+  test('deve fazer logout com sucesso', async ({ page }) => { 
+    await loginPage.login('standard_user', 'secret_sauce');
 
     await expect(page).toHaveURL('/inventory.html');
     
-    await page.getByRole('button', { name: 'Open Menu'}).click();
-    await page.getByRole('link', { name: 'Logout'}).click();
+    await inventoryPage.logout();
 
     await expect(page).toHaveURL('/');
-    await expect(page.locator('[data-test="login-button"]')).toBeVisible();
+    await expect(loginPage.loginButton).toBeVisible();
   });
 
 });
 
 test.describe('Carrinho de compras', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+  let loginPage: LoginPage;
+  let inventoryPage: InventoryPage;
 
-    await page.locator('[data-test="username"]').fill('standard_user');
-    await page.locator('[data-test="password"]').fill('secret_sauce');
-    await page.locator('[data-test="login-button"]').click();    
+  test.beforeEach(async ({ page }) => {
+    loginPage = new LoginPage(page);
+    inventoryPage = new InventoryPage(page);
+    await loginPage.goto();
+    await loginPage.login('standard_user', 'secret_sauce');
   });
 
   test('deve adicionar produto ao carrinho @smoke', async ({page}) =>{
-    await page.locator('[data-test="add-to-cart-sauce-labs-backpack"]').click();
-    await expect(page.locator('[data-test="shopping-cart-badge"]')).toHaveText('1')
-    await page.locator('[data-test="shopping-cart-link"]').click();
+    await inventoryPage.addBackpack();
+    await expect(inventoryPage.shoppingCartBadge).toHaveText('1')
+
+    await inventoryPage.goToCart();
     await expect(page.locator('[data-test="inventory-item-name"]')).toContainText('Sauce Labs Backpack');
   });
 
   test('deve remover produto do carrinho', async ({page}) =>{
-    await page.locator('[data-test="add-to-cart-sauce-labs-backpack"]').click();
-    await page.locator('[data-test="remove-sauce-labs-backpack"]').click();
+    await inventoryPage.addBackpack();
+    await inventoryPage.removeBackpack();
     
-    await page.locator('[data-test="shopping-cart-link"]').click();
+    await inventoryPage.goToCart();
     await expect(page.getByText('Sauce Labs Backpack')).not.toBeVisible();
     await expect(page.locator('.shopping_cart_badge')).not.toBeVisible();
   });
@@ -77,73 +78,65 @@ test.describe('Carrinho de compras', () => {
 });
 
 test.describe('Produtos', () => {
+  let loginPage: LoginPage;
+  let inventoryPage: InventoryPage;
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    loginPage = new LoginPage(page);
+    inventoryPage = new InventoryPage(page);
 
-    // Login
-    await page.locator('[data-test="username"]').fill('standard_user');
-    await page.locator('[data-test="password"]').fill('secret_sauce');
-    await page.locator('[data-test="login-button"]').click();    
+    await loginPage.goto();
+    await loginPage.login('standard_user', 'secret_sauce');
   });
 
-  test('deve ordenar produtos por preço (menor para maior)', async ({page}) =>{
-    await page.locator('[data-test="product-sort-container"]').selectOption('lohi');
+  test('deve ordenar produtos por preço (menor para maior)', async () =>{
+    await inventoryPage.sortBy('lohi');
 
-    const firstProductPrice = page.locator('[data-test="inventory-item-price"]').first()
-    await expect(firstProductPrice).toHaveText('$7.99');
-
-    const firstProductName = page.locator('[data-test="inventory-item-name"]').first()
-    await expect(firstProductName).toHaveText('Sauce Labs Onesie');
+    await expect(inventoryPage.getFirstProductPrice()).toHaveText('$7.99');
+    await expect(inventoryPage.getFirstProductName()).toHaveText('Sauce Labs Onesie');
   });
 
-  test('deve ordenar produtos por preço (maior para menor)', async ({page}) =>{
-    await page.locator('[data-test="product-sort-container"]').selectOption('hilo');
+  test('deve ordenar produtos por preço (maior para menor)', async () =>{
+    await inventoryPage.sortBy('hilo');
 
-    const firstProductPrice = page.locator('[data-test="inventory-item-price"]').first()
-    await expect(firstProductPrice).toHaveText('$49.99');
-
-    const firstProductName = page.locator('[data-test="inventory-item-name"]').first()
-    await expect(firstProductName).toHaveText('Sauce Labs Fleece Jacket');
+    await expect(inventoryPage.getFirstProductPrice()).toHaveText('$49.99');
+    await expect(inventoryPage.getFirstProductName()).toHaveText('Sauce Labs Fleece Jacket');
   });
 
-  test('deve ordenar produtos por nome (A ao Z)', async ({page}) =>{
-    await page.locator('[data-test="product-sort-container"]').selectOption('az');
+  test('deve ordenar produtos por nome (A ao Z)', async () =>{
+    await inventoryPage.sortBy('az');
 
-    const firstProductName = page.locator('[data-test="inventory-item-name"]').first()
-    await expect(firstProductName).toHaveText('Sauce Labs Backpack');
-
-    const lastProductName = page.locator('[data-test="inventory-item-name"]').last()
-    await expect(lastProductName).toHaveText('Test.allTheThings() T-Shirt (Red)');
+    await expect(inventoryPage.getFirstProductName()).toHaveText('Sauce Labs Backpack');
+    await expect(inventoryPage.getLastProductName()).toHaveText('Test.allTheThings() T-Shirt (Red)');
   });
 
-  test('deve ordenar produtos por nome (Z ao A)', async ({page}) =>{
-    await page.locator('[data-test="product-sort-container"]').selectOption('za');
+  test('deve ordenar produtos por nome (Z ao A)', async () =>{
+    await inventoryPage.sortBy('za');
 
-    const lastProductName = page.locator('[data-test="inventory-item-name"]').first()
-    await expect(lastProductName).toHaveText('Test.allTheThings() T-Shirt (Red)');
-    
-    const firstProductName = page.locator('[data-test="inventory-item-name"]').last()
-    await expect(firstProductName).toHaveText('Sauce Labs Backpack');    
+    await expect(inventoryPage.getFirstProductName()).toHaveText('Test.allTheThings() T-Shirt (Red)');
+    await expect(inventoryPage.getLastProductName()).toHaveText('Sauce Labs Backpack');
   });
 });
 
 test.describe('Checkout',() => {
+  let loginPage: LoginPage;
+  let inventoryPage: InventoryPage;
 
   test('deve completar uma compra com sucesso @smoke', async ({page}) =>{
+    loginPage = new LoginPage(page);
+    inventoryPage = new InventoryPage(page);
 
     await test.step('Fazer login', async() => {
-      await page.goto('/');
-      await page.locator('[data-test="username"]').fill('standard_user');
-      await page.locator('[data-test="password"]').fill('secret_sauce');
-      await page.locator('[data-test="login-button"]').click(); 
+      await loginPage.goto();
+      await loginPage.login('standard_user', 'secret_sauce');
 
       await expect(page).toHaveURL('/inventory.html');
       await expect(page.locator('.title')).toHaveText('Products');
     });
 
     await test.step('Adicionar produto ao carrinho', async() => {
-      await page.locator('[data-test="add-to-cart-sauce-labs-backpack"]').click();
-      await expect(page.locator('[data-test="shopping-cart-badge"]')).toHaveText('1')
+      await inventoryPage.addBackpack();
+      await expect(inventoryPage.shoppingCartBadge).toHaveText('1');
     });
 
     await test.step('Ir para o carrinho', async() => {
@@ -192,7 +185,7 @@ test.describe('Checkout',() => {
       await page.getByRole('link', { name: 'Logout'}).click();
 
       await expect(page).toHaveURL('/');
-      await expect(page.locator('[data-test="login-button"]')).toBeVisible();
+      await expect(loginPage.loginButton).toBeVisible();
     });
   });
 });
